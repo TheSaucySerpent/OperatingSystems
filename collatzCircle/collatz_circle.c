@@ -10,7 +10,7 @@
 #define WRITE 1
 
 int main() {
-  pid_t pid1, pid2;
+  pid_t pid1, pid2, pid3;
   int p1[2], p2[2], p3[2], p4[2];
   int initial_value, calulcated_value, status;;
 
@@ -29,24 +29,51 @@ int main() {
       exit(1);
     }
     else if(pid2 == 0) { // child process #2
+      if((pid3 = fork()) < 0) { // third fork (+1 process)
+        perror("fork failure");
+        exit(1);
+      }
+      else if(pid3 == 0) { // child process #3
+        close(p3[WRITE]); // close write end of p3
+        close(p4[READ]); // close read end of p4
+
+        // close both ends of p1 and p4
+        close(p1[READ]);
+        close(p1[WRITE]);
+        close(p2[READ]);
+        close(p2[WRITE]);
+
+        read(p3[READ], &calulcated_value, sizeof(int)); // read the value from child process #2
+
+        printf("child process 3 sending %d back to parent process\n", calulcated_value);
+
+        write(p4[WRITE], &calulcated_value, sizeof(int)); // write calculated value to parent process
+
+        // close used ends of pipes for best practice
+        close(p3[READ]);
+        close(p4[WRITE]);
+        exit(0);
+      }
+    
       close(p2[WRITE]); // close write end of p2
       close(p3[READ]); // close read end of p3
 
       // close both ends of p1 and p4
       close(p1[READ]);
       close(p1[WRITE]);
-      // close(p4[READ]); 
-      // close(p4[WRITE]);
+      close(p4[READ]); 
+      close(p4[WRITE]);
 
       read(p2[READ], &calulcated_value, sizeof(int)); // read the value from child process #1
 
       printf("child process 2 sending %d to child process 3\n", calulcated_value);
 
-      write(p4[WRITE], &calulcated_value, sizeof(int)); // write it to the next process (child process #3)
+      write(p3[WRITE], &calulcated_value, sizeof(int)); // write it to the next process (child process #3)
 
       // close used ends of pipes for best practice
       close(p2[READ]);
       close(p3[WRITE]);
+      wait(&status);
       exit(0);
     }
 

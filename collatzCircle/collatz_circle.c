@@ -93,16 +93,17 @@ int main(int argc, char *argv[]) {
     int even_numbers_received = 0;
     // core child loop
     while(true) {
-      usleep(2500000);
       printf("Child %d is ready\n", getpid());
 
       read(fd_read, &received_number, sizeof(int));
       
-      usleep(2500000);
       printf("Child %d has received: %d\n", getpid(), received_number);
 
       if(received_number == 0) {
-        usleep(2500000);
+        // prevent the last process from writing 0 back to the parent
+        if(fd_write != p[0][WRITE]) { 
+          write(fd_write, &received_number, sizeof(int));
+        }
         close(fd_read);
         close(fd_write);
         printf("Child %d received %d even number(s)\n", getpid(), even_numbers_received);

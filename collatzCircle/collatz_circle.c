@@ -9,6 +9,8 @@
 #define READ 0
 #define WRITE 1
 
+int collatz_next_term(int previous_term);
+
 int main() {
   pid_t pid1, pid2, pid3;
   int p1[2], p2[2], p3[2], p4[2];
@@ -45,6 +47,8 @@ int main() {
 
         read(p3[READ], &calulcated_value, sizeof(int)); // read the value from child process #2
 
+        calulcated_value = collatz_next_term(calulcated_value);
+
         printf("child process 3 sending %d back to parent process\n", calulcated_value);
 
         write(p4[WRITE], &calulcated_value, sizeof(int)); // write calculated value to parent process
@@ -65,6 +69,8 @@ int main() {
       close(p4[WRITE]);
 
       read(p2[READ], &calulcated_value, sizeof(int)); // read the value from child process #1
+
+      calulcated_value = collatz_next_term(calulcated_value);
 
       printf("child process 2 sending %d to child process 3\n", calulcated_value);
 
@@ -88,6 +94,8 @@ int main() {
     close(p4[WRITE]);
 
     read(p1[READ], &calulcated_value, sizeof(int)); // read the value from the parent process
+
+    calulcated_value = collatz_next_term(calulcated_value);
 
     printf("child process 1 sending %d to child process 2\n", calulcated_value);
 

@@ -37,7 +37,7 @@ int main() {
         close(p3[WRITE]); // close write end of p3
         close(p4[READ]); // close read end of p4
 
-        // close both ends of p1 and p4
+        // close both ends of p1 and p2
         close(p1[READ]);
         close(p1[WRITE]);
         close(p2[READ]);
@@ -73,6 +73,7 @@ int main() {
       // close used ends of pipes for best practice
       close(p2[READ]);
       close(p3[WRITE]);
+
       wait(&status);
       exit(0);
     }
@@ -103,6 +104,12 @@ int main() {
     close(p1[READ]); // close low pressure end of p1
     close(p4[WRITE]); // close high pressure end of p4
 
+    // close both ends of p2 and p3
+    close(p2[READ]);
+    close(p2[WRITE]);
+    close(p3[READ]);
+    close(p3[WRITE]);
+
     printf("Enter a number: ");
     scanf("%d", &initial_value);
     write(p1[WRITE], &initial_value, sizeof(int));
@@ -113,6 +120,7 @@ int main() {
     int final_value;
     read(p4[READ], &final_value, sizeof(int));
 
+    // close used ends of pipes for best practice
     close(p1[WRITE]);
     close(p4[READ]);
 
@@ -121,4 +129,11 @@ int main() {
 
     return 0;
     }
+}
+
+int collatz_next_term(int previous_term) {
+  if(previous_term % 2 == 0) {
+    return previous_term / 2;
+  }
+  return (previous_term * 3) + 1;
 }

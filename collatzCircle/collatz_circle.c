@@ -10,12 +10,14 @@
 #define WRITE 1
 
 void core_collatz_loop(int fd_read, int fd_write);
+void close_undesired_pipes(int fd_count, int *fd_array);
 int collatz_next_term(int previous_term);
 
 int main() {
   pid_t pid1, pid2, pid3;
   int p1[2], p2[2], p3[2], p4[2];
   int collatz_value, status;
+  int fd_count = 6;
 
   pipe(p1); // pipe to send from parent to child process #1
   pipe(p2); // pipe to send from child process #1 to child process #2
@@ -37,129 +39,41 @@ int main() {
         exit(1);
       }
       else if(pid3 == 0) { // child process #3
-        close(p3[WRITE]); // close write end of p3
-        close(p4[READ]); // close read end of p4
+        int fd_array[] = {p3[WRITE], p4[READ], p1[READ], p1[WRITE], p2[READ], p2[WRITE]};
+        close_undesired_pipes(fd_count, fd_array);
 
-        // close both ends of p1 and p2
-        close(p1[READ]);
-        close(p1[WRITE]);
-        close(p2[READ]);
-        close(p2[WRITE]);
-
-        // while(true) {
-        //   usleep(2500000);
-        //   printf("Child %d is ready\n", getpid());
-        //   read(p3[READ], &collatz_value, sizeof(int)); // read the value from child process #2
-
-        //   usleep(2500000);
-        //   printf("PID: %d has read %d\n", getpid(), collatz_value);
-
-        //   if(collatz_value != 1) {
-        //     collatz_value = collatz_next_term(collatz_value);
-        //   }
-        //   write(p4[WRITE], &collatz_value, sizeof(int)); // write calculated value to parent process
-
-        //   if(collatz_value == 0) {
-        //     break;
-        //   }
-        // }
         core_collatz_loop(p3[READ], p4[WRITE]);
 
-        // close used ends of pipes for best practice
-        close(p3[READ]);
-        close(p4[WRITE]);
         printf("Child %d is done\n", getpid());
         exit(0);
       }
     
-      close(p2[WRITE]); // close write end of p2
-      close(p3[READ]); // close read end of p3
+      int fd_array[] = {p2[WRITE], p3[READ], p1[READ], p1[WRITE], p4[READ], p4[WRITE]};
+      close_undesired_pipes(fd_count, fd_array);
 
-      // close both ends of p1 and p4
-      close(p1[READ]);
-      close(p1[WRITE]);
-      close(p4[READ]); 
-      close(p4[WRITE]);
-
-      // while(true) {
-      //   usleep(2500000);
-      //   printf("Child %d is ready\n", getpid());
-      //   read(p2[READ], &collatz_value, sizeof(int)); // read the value from child process #1
-
-      //   usleep(2500000);
-      //   printf("PID: %d has read %d\n", getpid(), collatz_value);
-
-      //   if(collatz_value != 1) {
-      //     collatz_value = collatz_next_term(collatz_value);
-      //   }
-      //   write(p3[WRITE], &collatz_value, sizeof(int)); // write it to the next process (child process #3)
-        
-      //   if(collatz_value == 0) {
-      //     break;
-      //   }
-      // }
       core_collatz_loop(p2[READ], p3[WRITE]);
 
-
-      // close used ends of pipes for best practice
-      close(p2[READ]);
-      close(p3[WRITE]);
       wait(&status);
       printf("Child %d is done\n", getpid());
       exit(0);
     }
+    int fd_array[] = {p1[WRITE], p2[READ], p3[READ], p3[WRITE], p4[READ], p4[WRITE]};
+    close_undesired_pipes(fd_count, fd_array);
 
-    close(p1[WRITE]); // close write end of p1
-    close(p2[READ]); // close read end of p2
-
-    // close both ends of p3 and p4
-    close(p3[READ]);
-    close(p3[WRITE]);
-    close(p4[READ]); 
-    close(p4[WRITE]);
-
-    // while(true) {
-    //   usleep(2500000);
-    //   printf("Child %d is ready\n", getpid());
-    //   read(p1[READ], &collatz_value, sizeof(int)); // read the value from the parent process
-
-    //   usleep(2500000);
-    //   printf("PID: %d has read %d\n", getpid(), collatz_value);
-
-    //   if(collatz_value != 1) { 
-    //     collatz_value = collatz_next_term(collatz_value);
-    //   }
-    //   write(p2[WRITE], &collatz_value, sizeof(int)); // write it to the next process (child process #2)
-
-    //   if(collatz_value == 0) {
-    //     break;
-    //   }
-    // }
     core_collatz_loop(p1[READ], p2[WRITE]);
 
-    // close used ends of pipes for best practice
-    close(p1[READ]);
-    close(p2[WRITE]);
     wait(&status);
     printf("Child %d is done\n", getpid());
     exit(0);
   }
   else {
-    close(p1[READ]); // close low pressure end of p1
-    close(p4[WRITE]); // close high pressure end of p4
-
-    // close both ends of p2 and p3
-    close(p2[READ]);
-    close(p2[WRITE]);
-    close(p3[READ]);
-    close(p3[WRITE]);
+    int fd_array[] = {p1[READ], p4[WRITE], p2[READ], p2[WRITE], p3[READ], p3[WRITE]};
+    close_undesired_pipes(fd_count, fd_array);
 
     printf("Enter a number: ");
     scanf("%d", &collatz_value);
     while(true) {
-      if(collatz_value != 1) {
-        collatz_value = collatz_next_term(collatz_value);
-      }
+
       write(p1[WRITE], &collatz_value, sizeof(int)); // write the initial value to child process #1
 
       read(p4[READ], &collatz_value, sizeof(int));
@@ -210,8 +124,19 @@ void core_collatz_loop(int fd_read, int fd_write) {
       break;
     }
   }
+  // close used ends of pipes for best practice
+  close(fd_read);
+  close(fd_write);
   return;
 }
+
+void close_undesired_pipes(int fd_count, int *fd_array) {
+  for(int i=0; i<fd_count; i++) {
+    close(fd_array[i]);
+  }
+  return;
+}
+
 
 int collatz_next_term(int previous_term) {
   if(previous_term % 2 == 0) {

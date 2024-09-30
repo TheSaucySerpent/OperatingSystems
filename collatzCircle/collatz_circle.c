@@ -9,6 +9,7 @@
 #define READ 0
 #define WRITE 1
 
+void core_collatz_loop(int fd_read, int fd_write);
 int collatz_next_term(int previous_term);
 
 int main() {
@@ -45,23 +46,25 @@ int main() {
         close(p2[READ]);
         close(p2[WRITE]);
 
-        while(true) {
-          usleep(2500000);
-          printf("Child %d is ready\n", getpid());
-          read(p3[READ], &collatz_value, sizeof(int)); // read the value from child process #2
+        // while(true) {
+        //   usleep(2500000);
+        //   printf("Child %d is ready\n", getpid());
+        //   read(p3[READ], &collatz_value, sizeof(int)); // read the value from child process #2
 
-          usleep(2500000);
-          printf("PID: %d has read %d\n", getpid(), collatz_value);
+        //   usleep(2500000);
+        //   printf("PID: %d has read %d\n", getpid(), collatz_value);
 
-          if(collatz_value != 1) {
-            collatz_value = collatz_next_term(collatz_value);
-          }
-          write(p4[WRITE], &collatz_value, sizeof(int)); // write calculated value to parent process
+        //   if(collatz_value != 1) {
+        //     collatz_value = collatz_next_term(collatz_value);
+        //   }
+        //   write(p4[WRITE], &collatz_value, sizeof(int)); // write calculated value to parent process
 
-          if(collatz_value == 0) {
-            break;
-          }
-        }
+        //   if(collatz_value == 0) {
+        //     break;
+        //   }
+        // }
+        core_collatz_loop(p3[READ], p4[WRITE]);
+
         // close used ends of pipes for best practice
         close(p3[READ]);
         close(p4[WRITE]);
@@ -78,23 +81,26 @@ int main() {
       close(p4[READ]); 
       close(p4[WRITE]);
 
-      while(true) {
-        usleep(2500000);
-        printf("Child %d is ready\n", getpid());
-        read(p2[READ], &collatz_value, sizeof(int)); // read the value from child process #1
+      // while(true) {
+      //   usleep(2500000);
+      //   printf("Child %d is ready\n", getpid());
+      //   read(p2[READ], &collatz_value, sizeof(int)); // read the value from child process #1
 
-        usleep(2500000);
-        printf("PID: %d has read %d\n", getpid(), collatz_value);
+      //   usleep(2500000);
+      //   printf("PID: %d has read %d\n", getpid(), collatz_value);
 
-        if(collatz_value != 1) {
-          collatz_value = collatz_next_term(collatz_value);
-        }
-        write(p3[WRITE], &collatz_value, sizeof(int)); // write it to the next process (child process #3)
+      //   if(collatz_value != 1) {
+      //     collatz_value = collatz_next_term(collatz_value);
+      //   }
+      //   write(p3[WRITE], &collatz_value, sizeof(int)); // write it to the next process (child process #3)
         
-        if(collatz_value == 0) {
-          break;
-        }
-      }
+      //   if(collatz_value == 0) {
+      //     break;
+      //   }
+      // }
+      core_collatz_loop(p2[READ], p3[WRITE]);
+
+
       // close used ends of pipes for best practice
       close(p2[READ]);
       close(p3[WRITE]);
@@ -112,23 +118,25 @@ int main() {
     close(p4[READ]); 
     close(p4[WRITE]);
 
-    while(true) {
-      usleep(2500000);
-      printf("Child %d is ready\n", getpid());
-      read(p1[READ], &collatz_value, sizeof(int)); // read the value from the parent process
+    // while(true) {
+    //   usleep(2500000);
+    //   printf("Child %d is ready\n", getpid());
+    //   read(p1[READ], &collatz_value, sizeof(int)); // read the value from the parent process
 
-      usleep(2500000);
-      printf("PID: %d has read: %d\n", getpid(), collatz_value);
+    //   usleep(2500000);
+    //   printf("PID: %d has read %d\n", getpid(), collatz_value);
 
-      if(collatz_value != 1) { 
-        collatz_value = collatz_next_term(collatz_value);
-      }
-      write(p2[WRITE], &collatz_value, sizeof(int)); // write it to the next process (child process #2)
+    //   if(collatz_value != 1) { 
+    //     collatz_value = collatz_next_term(collatz_value);
+    //   }
+    //   write(p2[WRITE], &collatz_value, sizeof(int)); // write it to the next process (child process #2)
 
-      if(collatz_value == 0) {
-        break;
-      }
-    }
+    //   if(collatz_value == 0) {
+    //     break;
+    //   }
+    // }
+    core_collatz_loop(p1[READ], p2[WRITE]);
+
     // close used ends of pipes for best practice
     close(p1[READ]);
     close(p2[WRITE]);
@@ -149,20 +157,14 @@ int main() {
     printf("Enter a number: ");
     scanf("%d", &collatz_value);
     while(true) {
-      if(collatz_value == 0) { // break from the loop
-        close(p1[WRITE]);
-        close(p4[READ]);
-        break;
-      }
       if(collatz_value != 1) {
         collatz_value = collatz_next_term(collatz_value);
       }
       write(p1[WRITE], &collatz_value, sizeof(int)); // write the initial value to child process #1
 
       read(p4[READ], &collatz_value, sizeof(int));
-
       usleep(2500000);
-      printf("Parent process sending %d to child process 1\n", collatz_value);
+      printf("Parent Process PID: %d has read %d\n", getpid(), collatz_value);
 
       if(collatz_value == 1) {
         printf("final value: %d\n", collatz_value);
@@ -172,8 +174,15 @@ int main() {
         scanf("%d", &collatz_value);
         continue;
       }
+      else if(collatz_value == 0) { // break from the loop
+        close(p1[WRITE]);
+        close(p4[READ]);
+        printf("Parent %d is done\n", getpid());
+        break;
+      }
       // printf("status: %d\n", WEXITSTATUS(status));
     }
+
     // close used sides of pipe for best practice
     close(p1[WRITE]);
     close(p4[READ]);
@@ -182,9 +191,27 @@ int main() {
   }
 }
 
-// void core_collatz_loop() {
+void core_collatz_loop(int fd_read, int fd_write) {
+  int collatz_value;
+  while(true) {
+    usleep(2500000);
+    printf("Child %d is ready\n", getpid());
+    read(fd_read, &collatz_value, sizeof(int)); // read the value from child process #2
 
-// }
+    usleep(2500000);
+    printf("PID: %d has read %d\n", getpid(), collatz_value);
+
+    if(collatz_value != 0 || collatz_value != 1) {
+      collatz_value = collatz_next_term(collatz_value);
+    }
+    write(fd_write, &collatz_value, sizeof(int)); // write calculated value to parent process
+
+    if(collatz_value == 0) {
+      break;
+    }
+  }
+  return;
+}
 
 int collatz_next_term(int previous_term) {
   if(previous_term % 2 == 0) {

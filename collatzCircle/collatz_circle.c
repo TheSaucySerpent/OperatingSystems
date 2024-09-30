@@ -9,8 +9,6 @@
 #define READ 0
 #define WRITE 1
 
-// void core_collatz_loop(int fd_read, int fd_write);
-// void close_undesired_pipes(int fd_count, int *fd_array);
 int collatz_next_term(int previous_term);
 
 int main(int argc, char *argv[]) {
@@ -25,16 +23,15 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   
-  int num_pipes = num_child_processes + 1;
-  int p[num_pipes][2]; // 2D array for pipes
-  for(int i=0; i<num_pipes; i++) { // create 2N pipe descriptors 
+  int p[num_child_processes][2]; // 2D array for pipes
+  for(int i=0; i<num_child_processes; i++) { // create 2N pipe descriptors 
     if(pipe(p[i]) < 0) {
       perror("pipe creation failure");
       return 1;
     }
   }
 
-  pid_t pid;
+  pid_t pid, child_pids[num_child_processes];
   int fd_read, fd_write; // file descriptors that the given process will use
   for(int i=0; i<num_child_processes; i++) { // loop to create desired number of child processes
     if((pid = fork()) < 0) {
@@ -42,15 +39,15 @@ int main(int argc, char *argv[]) {
     }
     else if(pid == 0) {
       // need to close all pipes not used by the given child
-      for(int j=0; j<num_pipes; j++) {
+      for(int j=0; j<num_child_processes; j++) {
         if(j != i) { // close the read end of all pipes except i's (child 1 reads from p0, child 2 reads from p1...)
           close(p[j][READ]);
         }
         else { // this is the read file descriptor this child will use
           fd_read = p[j][READ];
         }
-        // close the write end of all pipes except i + 1's (child 1 writes to p1, child 2 writes to p3...)
-        if(j != (i + 1)){
+        // close the write end of all pipes except i + 1's (need to make sure the final child process loops back around)
+        if(j != (i + 1) % num_child_processes) {
           close(p[j][WRITE]);
         }
         else { // this is the write file descriptor this child will use
@@ -59,9 +56,12 @@ int main(int argc, char *argv[]) {
       }
       break; // only the parent process should create children
     }
+    else {
+      child_pids[i] = pid;
+    }
   }
   if(pid != 0) {
-    for(int i=0; i<num_pipes; i++) {
+    for(int i=0; i<num_child_processes; i++) {
       if(i != 0) { // close the write end of all pipes except the first one
         close(p[i][WRITE]); 
       }
@@ -79,19 +79,44 @@ int main(int argc, char *argv[]) {
       write(fd_write, &initial_number, sizeof(int));
 
       if(initial_number == 0) { // stop condition
+        int status;
+        for(int i=0; i<num_child_processes; i++) {
+          waitpid(child_pids[i], &status, 0);
+        }
         break;
       }
     }
   }
   else {
     int received_number, sent_number;
+    int odd_numbers_received = 0;
+    int even_numbers_received = 0;
     // core child loop
     while(true) {
-      // printf("Child %d is ready\n", getpid());
+      usleep(2500000);
+      printf("Child %d is ready\n", getpid());
 
       read(fd_read, &received_number, sizeof(int));
-
+      
+      usleep(2500000);
       printf("Child %d has received: %d\n", getpid(), received_number);
+
+      if(received_number == 0) {
+        usleep(2500000);
+        close(fd_read);
+        close(fd_write);
+        printf("Child %d received %d even number(s)\n", getpid(), even_numbers_received);
+        printf("Child %d received %d odd number(s)\n", getpid(), odd_numbers_received);
+        printf("Child %d is done\n", getpid());
+        exit(0);
+      }
+
+      if(received_number % 2 == 0) {
+        even_numbers_received++; // number is even, increment even counter
+      }
+      else {
+        odd_numbers_received++; // number is odd, increment odd counter
+      }
 
       if(received_number != 1) {
         sent_number = collatz_next_term(received_number);
@@ -109,39 +134,6 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
-
-// void core_collatz_loop(int fd_read, int fd_write) {
-//   int collatz_value;
-//   while(true) {
-//     usleep(2500000);
-//     printf("Child %d is ready\n", getpid());
-//     read(fd_read, &collatz_value, sizeof(int)); // read the value from child process #2
-
-//     usleep(2500000);
-//     printf("PID: %d has read %d\n", getpid(), collatz_value);
-
-//     if(collatz_value != 0 || collatz_value != 1) {
-//       collatz_value = collatz_next_term(collatz_value);
-//     }
-//     write(fd_write, &collatz_value, sizeof(int)); // write calculated value to parent process
-
-//     if(collatz_value == 0) {
-//       break;
-//     }
-//   }
-//   // close used ends of pipes for best practice
-//   close(fd_read);
-//   close(fd_write);
-//   return;
-// }
-
-// void close_undesired_pipes(int fd_count, int *fd_array) {
-//   for(int i=0; i<fd_count; i++) {
-//     close(fd_array[i]);
-//   }
-//   return;
-// }
-
 
 int collatz_next_term(int previous_term) {
   if(previous_term % 2 == 0) {

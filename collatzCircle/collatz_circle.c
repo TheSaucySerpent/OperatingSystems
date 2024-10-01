@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
       usleep(2500000);
 
       if(received_number == 0) {
-        // prevent the last process from writing 0 back to the parent
+        // prevent the last process from writing 0 back around
         if(fd_write != p[0][WRITE]) { 
           write(fd_write, &received_number, sizeof(int));
         }

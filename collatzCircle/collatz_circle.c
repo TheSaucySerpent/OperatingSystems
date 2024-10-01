@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
     int initial_number;
     // core parental loop
     while(true) {
-      printf("Enter first number in sequence: ");
+      // printf("Enter first number in sequence: ");
       scanf("%d", &initial_number);
 
       write(fd_write, &initial_number, sizeof(int));
@@ -93,11 +93,17 @@ int main(int argc, char *argv[]) {
     int even_numbers_received = 0;
     // core child loop
     while(true) {
+      usleep(1000000);
+
       printf("Child %d is ready\n", getpid());
+
+      usleep(2500000);
 
       read(fd_read, &received_number, sizeof(int));
       
       printf("Child %d has received: %d\n", getpid(), received_number);
+
+      usleep(2500000);
 
       if(received_number == 0) {
         // prevent the last process from writing 0 back to the parent

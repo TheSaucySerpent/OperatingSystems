@@ -77,10 +77,11 @@ int main(int argc, char *argv[]) {
       printf("Parent has recieved ready message from PID: %d\n", ready_child_pid);
     }
 
+    // prompt the user for the intial number in the sequence & receive it (initial input)
+    printf("Enter first number in sequence:\n");
+
     // core parental loop
     while(true) {
-      // prompt the user for the intial number in the sequence & receive it
-      printf("Enter first number in sequence:\n");
       scanf("%d", &initial_number);
 
       // write the number to the first child
@@ -279,6 +280,10 @@ void collatz_circle_loop(process_specific_information *ps_info) {
     if(collatz_value != 1) { // send to next child if number is not a 1
       collatz_value = collatz_next_term(collatz_value);
       write(ps_info->collatz_fd_write, &collatz_value, sizeof(int));
+    }
+    else {
+      // ensures sequence is complete before prompting again (prevents parent from prompting instantly)
+      printf("Enter first number in sequence:\n"); 
     }
   }
 }

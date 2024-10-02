@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
 
           wait(&status); // wait for children to exit
         }
-        // close parent process's collatz fd_write (doesn't have  collatz fd_read)
+        // close parent process's collatz fd_write (doesn't have collatz fd_read)
         close(ps_info->collatz_fd_write); 
 
         // free allocated memory 
@@ -171,7 +171,7 @@ process_specific_information* collatz_circle_create(int num_child_processes, int
   for(int i=0; i<num_child_processes; i++) { // loop to create desired number of child processes
     if((pid = fork()) < 0) {
       perror("fork failure");
-      free(ps_info);
+      free(ps_info); // free allocated memory (caller will free pipe arrays)
       return NULL;
     }
     else if(pid == 0) { // setup child process

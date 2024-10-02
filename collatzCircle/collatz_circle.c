@@ -231,6 +231,8 @@ void collatz_circle_loop(process_specific_information *ps_info) {
   int odd_numbers_received = 0;
   int even_numbers_received = 0;
 
+  usleep(1000000);
+
   // send initial ready message to the parent
   pid_t pid = getpid();
   write(ps_info->report_to_parent_fd_write, &pid, sizeof(pid_t));
@@ -241,13 +243,13 @@ void collatz_circle_loop(process_specific_information *ps_info) {
 
     printf("Child %d is ready\n", pid);
 
-    usleep(2500000);
+    usleep(1000000);
 
     read(ps_info->collatz_fd_read, &collatz_value, sizeof(int));
     
     printf("Child %d has received: %d\n", pid, collatz_value);
 
-    usleep(2500000);
+    usleep(1000000);
 
     if(collatz_value == 0) {
       // prevent the last process from writing 0 back around

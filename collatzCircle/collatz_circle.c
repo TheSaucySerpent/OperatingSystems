@@ -77,7 +77,11 @@ int main(int argc, char *argv[]) {
       printf("Parent has recieved ready message from PID: %d\n", ready_child_pid);
     }
 
-    // prompt the user for the intial number in the sequence & receive it (initial input)
+    /* prompt the user for the intial number in the sequence & receive it (initial input only)
+    a child process will prompt for input again after it receives a 1. This prevents the parent
+    process from instantly prompting for input after it has just received a number and instead
+    waits to prompt the user again only after the current sequence has completed (which I thought
+    was a more elegant solution)*/ 
     printf("Enter first number in sequence:\n");
 
     // core parental loop

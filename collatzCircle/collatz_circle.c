@@ -73,6 +73,7 @@ int main(int argc, char *argv[]) {
         break;
       }
     }
+    close(ps_info->fd_write); // close the write fd for the parent (only open fd)
   }
   else {
     collatz_circle_loop(ps_info); // execute the child loop
@@ -157,7 +158,7 @@ process_specific_information* collatz_circle_create(int num_child_processes, int
     }
   }
   if(ps_info->is_child_process == false) { // close the proper pipes for the parent process
-    ps_info->fd_write = pipe_array[0][WRITE];
+    ps_info->fd_write = pipe_array[0][WRITE]; // this is the only fd the parent will use
     for(int i=0; i<num_child_processes; i++) {
       if(i != 0) { // close the write end of all pipes except the first one
         close(pipe_array[i][WRITE]); 

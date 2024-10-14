@@ -12,6 +12,7 @@ void* consumer(void *arg);
 
 int buffer_size;
 int *buffer;
+char *command_buffer;
 sem_t mutex, empty, full;
 int producer_index, consumer_index;
 
@@ -28,6 +29,7 @@ int main(int argc, char *argv[]) {
 
   // initialize the buffer
   buffer = malloc(sizeof(int) * buffer_size);
+  command_buffer = malloc(sizeof(char) * 2);
 
   // initialize necessary semaphores
   sem_init(&mutex, 0, 1);
@@ -44,27 +46,20 @@ int main(int argc, char *argv[]) {
   char user_input[2];
   // core loop to recieve user commands
   while(true) {
-    printf("Enter desired command: ");
+    // printf("Enter desired command: ");
     fgets(user_input, 2, stdin);
+    if(strcmp(user_input, "q") == 0) {
+      printf("Preparing to quit\n");
+    }
 
-    if(strcmp(user_input, "a") == 0) {
-      printf("a was entered");
-    }
-    else if(strcmp(user_input, "z") == 0) {
-      printf("z was entered");
-    }
-    else if(strcmp(user_input, "s") == 0) {
-      printf("s was entered");
-    }
-    else if(strcmp(user_input, "x") == 0) {
-      printf("x was entered");
-    }
-    else if(strcmp(user_input, "q") == 0) {
-      printf("q was entered");
+    sem_wait(&mutex); // wait for the mutex semaphore to unlock
+    
+    strcpy(command_buffer, user_input);
+
+    sem_post(&mutex);
+
+    if(strcmp(user_input, "q") == 0) {
       break;
-    }
-    else {
-      printf("unknown command");
     }
   }
 
@@ -73,6 +68,7 @@ int main(int argc, char *argv[]) {
   pthread_join(consumer_thread, (void **) &consumer_val); // join the consumer thread
 
   free(buffer); // free the buffer
+  free(command_buffer); // free the command buffer
 
   return 0;
 }
@@ -81,12 +77,13 @@ void* producer(void *arg) {
   // need upper bound to be 8001 so that rand() % upper_bound generates from 0-8000, then add 1000 so final range is 1000-9000
   int upper_bound = 8001; 
   int sleep_time = *(int *)arg;
+  int next_produced;
 
   srand(time(NULL)); // seed the random number generator with the current time
 
   while (true) {
     // produce an item in next_produced
-    int next_produced = (rand() % (upper_bound)) + 1000; // generate a random number between 1000 and 9000
+    next_produced = (rand() % (upper_bound)) + 1000; // generate a random number between 1000 and 9000
 
     sem_wait(&empty); // wait for the empty semaphore to unlock
     sem_wait(&mutex); // wait for the mutex semaphore to unlock
@@ -101,7 +98,12 @@ void* producer(void *arg) {
 
     printf("Put %d into bin %d\n", next_produced, producer_index);
     producer_index = (producer_index + 1) % buffer_size; // make indexing wrap around
+
+    if(strcmp(command_buffer, "q") == 0) {
+      break;
+    }
   }
+  printf("End of producer\n");
   return 0;
 }
 
@@ -123,6 +125,11 @@ void* consumer(void *arg) {
     // consume the item in next_consumed (TODO)
     printf("\tGet %d from bin %d\n", next_consumed, consumer_index);
     consumer_index = (consumer_index + 1) % buffer_size; // make indexing wrap around
+
+    if(strcmp(command_buffer, "q") == 0) {
+      break;
+    }
   }
+  printf("\tEnd of consumer\n");
   return 0;
 }

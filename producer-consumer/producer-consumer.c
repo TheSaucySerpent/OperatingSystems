@@ -47,8 +47,8 @@ int main(int argc, char *argv[]) {
   // core loop to recieve user commands
   while(true) {
     // printf("Enter desired command: ");
-    fgets(user_input, 2, stdin);
-    if(strcmp(user_input, "q") == 0) {
+    fgets(user_input, 3, stdin);
+    if(strcmp(user_input, "q\n") == 0) {
       printf("Preparing to quit\n");
     }
 
@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
 
     sem_post(&mutex);
 
-    if(strcmp(user_input, "q") == 0) {
+    if(strcmp(user_input, "q\n") == 0) {
       break;
     }
   }
@@ -88,6 +88,15 @@ void* producer(void *arg) {
     sem_wait(&empty); // wait for the empty semaphore to unlock
     sem_wait(&mutex); // wait for the mutex semaphore to unlock
 
+    if(strcmp(command_buffer, "a\n") == 0) {
+      sleep_time += 250;
+      strcpy(command_buffer, " \n"); // clear the buffer
+    }
+    else if(strcmp(command_buffer, "z\n") == 0) {
+      sleep_time -= 250;
+      strcpy(command_buffer, " \n"); // clear the buffer
+    }
+
     usleep(sleep_time); // sleep for the desired time
 
     // add next_produced to the buffer
@@ -99,8 +108,8 @@ void* producer(void *arg) {
     printf("Put %d into bin %d\n", next_produced, producer_index);
     producer_index = (producer_index + 1) % buffer_size; // make indexing wrap around
 
-    if(strcmp(command_buffer, "q") == 0) {
-      break;
+    if(strcmp(command_buffer, "q\n") == 0) {
+      break; // break if q is in the command buffer
     }
   }
   printf("End of producer\n");
@@ -114,6 +123,15 @@ void* consumer(void *arg) {
     sem_wait(&full); // wait for the full semaphore to unlock
     sem_wait(&mutex); // wait for the mutex semaphore to unlock
 
+    if(strcmp(command_buffer, "s\n") == 0) {
+      sleep_time += 250;
+      strcpy(command_buffer, " \n"); // clear the buffer
+    }
+    else if(strcmp(command_buffer, "x\n") == 0) {
+      sleep_time -= 250;
+      strcpy(command_buffer, " \n"); // clear the buffer
+    }
+
     usleep(sleep_time); // sleep for the desired time
 
     // remove an item from buffer to next_consumed (TODO)
@@ -126,8 +144,8 @@ void* consumer(void *arg) {
     printf("\tGet %d from bin %d\n", next_consumed, consumer_index);
     consumer_index = (consumer_index + 1) % buffer_size; // make indexing wrap around
 
-    if(strcmp(command_buffer, "q") == 0) {
-      break;
+    if(strcmp(command_buffer, "q\n") == 0) {
+      break; // break if q is in the command_buffer
     }
   }
   printf("\tEnd of consumer\n");

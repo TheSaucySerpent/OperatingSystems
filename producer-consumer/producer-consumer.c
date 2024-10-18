@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
     sem_post(&mutex);
 
     if(strcmp(user_input, "q\n") == 0) {
-      break;
+      break; // can check user_input after of sem_post since not shared (as opposed to command_buffer)
     }
   }
 
@@ -107,15 +107,16 @@ void* producer(void *arg) {
     // add next_produced to the buffer
     buffer[producer_index] = next_produced;
 
-    sem_post(&mutex);
-    sem_post(&full);
-
     printf("Put %d into bin %d\n", next_produced, producer_index);
     producer_index = (producer_index + 1) % buffer_size; // make indexing wrap around
 
     if(strcmp(command_buffer, "q\n") == 0) {
+      sem_post(&mutex);
+      sem_post(&full);
       break; // break if q is in the command buffer
     }
+    sem_post(&mutex);
+    sem_post(&full);
   }
   printf("End of producer\n");
   return 0;
@@ -142,16 +143,17 @@ void* consumer(void *arg) {
     // remove an item from buffer to next_consumed
     next_consumed = buffer[consumer_index];
 
-    sem_post(&mutex);
-    sem_post(&empty);
-
     // consume the item in next_consumed
     printf("\tGet %d from bin %d\n", next_consumed, consumer_index);
     consumer_index = (consumer_index + 1) % buffer_size; // make indexing wrap around
 
     if(strcmp(command_buffer, "q\n") == 0) {
+      sem_post(&mutex);
+      sem_post(&empty);
       break; // break if q is in the command_buffer
     }
+    sem_post(&mutex);
+    sem_post(&empty);
   }
   printf("\tEnd of consumer\n");
   return 0;

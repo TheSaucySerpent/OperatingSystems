@@ -67,6 +67,11 @@ int main(int argc, char *argv[]) {
   pthread_join(producer_thread, (void **) &producer_val); // join the producer thread
   pthread_join(consumer_thread, (void **) &consumer_val); // join the consumer thread
 
+  // release the semaphores
+  sem_destroy(&full);
+  sem_destroy(&empty);
+  sem_destroy(&mutex);
+
   free(buffer); // free the buffer
   free(command_buffer); // free the command buffer
 
@@ -134,13 +139,13 @@ void* consumer(void *arg) {
 
     usleep(sleep_time); // sleep for the desired time
 
-    // remove an item from buffer to next_consumed (TODO)
+    // remove an item from buffer to next_consumed
     next_consumed = buffer[consumer_index];
 
     sem_post(&mutex);
     sem_post(&empty);
 
-    // consume the item in next_consumed (TODO)
+    // consume the item in next_consumed
     printf("\tGet %d from bin %d\n", next_consumed, consumer_index);
     consumer_index = (consumer_index + 1) % buffer_size; // make indexing wrap around
 

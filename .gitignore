@@ -1,2 +1,5 @@
 *.o
 a.out
+reader
+writer
+producer-consumer

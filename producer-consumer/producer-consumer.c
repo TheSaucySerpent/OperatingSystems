@@ -13,6 +13,7 @@ void* consumer(void *arg);
 int buffer_size;
 int *buffer;
 char *command_buffer;
+bool producer_done;
 sem_t mutex, empty, full;
 int producer_index, consumer_index;
 
@@ -30,6 +31,9 @@ int main(int argc, char *argv[]) {
   // initialize the buffer
   buffer = malloc(sizeof(int) * buffer_size);
   command_buffer = malloc(sizeof(char) * 2);
+
+  // initialize the producer done boolean
+  producer_done = false;
 
   // initialize necessary semaphores
   sem_init(&mutex, 0, 1);
@@ -111,6 +115,7 @@ void* producer(void *arg) {
     producer_index = (producer_index + 1) % buffer_size; // make indexing wrap around
 
     if(strcmp(command_buffer, "q\n") == 0) {
+      producer_done = true;
       sem_post(&mutex);
       sem_post(&full);
       break; // break if q is in the command buffer
@@ -147,7 +152,7 @@ void* consumer(void *arg) {
     printf("\tGet %d from bin %d\n", next_consumed, consumer_index);
     consumer_index = (consumer_index + 1) % buffer_size; // make indexing wrap around
 
-    if(strcmp(command_buffer, "q\n") == 0) {
+    if(strcmp(command_buffer, "q\n") == 0 && consumer_index == producer_index && producer_done) {
       sem_post(&mutex);
       sem_post(&empty);
       break; // break if q is in the command_buffer

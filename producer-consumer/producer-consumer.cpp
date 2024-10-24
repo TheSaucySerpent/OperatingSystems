@@ -3,7 +3,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <cstdlib>
-#include <chrono>
+#include <unistd.h>
 
 void* producer(void *arg);
 void* consumer(void *arg);
@@ -92,11 +92,11 @@ void* producer(void *arg) {
       sleep_time -= 250;
       command_buffer.clear(); // clear the buffer
     }
+    mtx.unlock();
 
-    // convert microseconds to milliseconds for sleep_for
-    std::chrono::microseconds sleep_duraction(sleep_time);
-    std::this_thread::sleep_for(sleep_duraction); // sleep for the desired time
+    usleep(sleep_time * 1000); // sleep for the desired time
 
+    mtx.lock();
     // add next_produced to the buffer
     buffer[producer_index] = next_produced;
     buffer_count++;
@@ -106,9 +106,11 @@ void* producer(void *arg) {
 
     if(command_buffer == "q") {
       producer_done = true;
+      mtx.unlock();
       empty.notify_one();
       break; // break if q is in the command buffer
     }
+    mtx.unlock();
     empty.notify_one();
   }
   std::cout << "End of producer" << std::endl;
@@ -130,11 +132,11 @@ void* consumer(void *arg) {
       sleep_time -= 250;
       command_buffer.clear(); // clear the buffer
     }
+    mtx.unlock();
 
-    // convert microseconds to milliseconds for sleep_for
-    std::chrono::microseconds sleep_duraction(sleep_time);
-    std::this_thread::sleep_for(sleep_duraction); // sleep for the desired time
+    usleep(sleep_time * 1000); // sleep for the desired time
 
+    mtx.lock();
     // remove an item from buffer to next_consumed
     next_consumed = buffer[consumer_index];
     buffer_count--;
@@ -144,9 +146,11 @@ void* consumer(void *arg) {
     consumer_index = (consumer_index + 1) % buffer_size; // make indexing wrap around
 
     if(command_buffer == "q" && consumer_index == producer_index  && producer_done == true) {
+      mtx.unlock();
       full.notify_one();
       break; // break if q is in the command_buffer
     }
+    mtx.unlock();
     full.notify_one();
   }
   std::cout << "\tEnd of consumer" << std::endl;

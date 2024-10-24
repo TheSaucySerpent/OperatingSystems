@@ -105,23 +105,26 @@ void* producer(void *arg) {
       sleep_time -= 250;
       strcpy(command_buffer, " \n"); // clear the buffer
     }
+    sem_post(&mutex);
 
-    usleep(sleep_time); // sleep for the desired time
+    usleep(sleep_time * 1000); // sleep for the desired time
 
+    sem_wait(&mutex);
     // add next_produced to the buffer
     buffer[producer_index] = next_produced;
+    sem_post(&full);
+    sem_post(&mutex);
 
     printf("Put %d into bin %d\n", next_produced, producer_index);
     producer_index = (producer_index + 1) % buffer_size; // make indexing wrap around
 
+    sem_wait(&mutex);
     if(strcmp(command_buffer, "q\n") == 0) {
       producer_done = true;
       sem_post(&mutex);
-      sem_post(&full);
       break; // break if q is in the command buffer
     }
     sem_post(&mutex);
-    sem_post(&full);
   }
   printf("End of producer\n");
   return 0;
@@ -142,23 +145,26 @@ void* consumer(void *arg) {
       sleep_time -= 250;
       strcpy(command_buffer, " \n"); // clear the buffer
     }
+    sem_post(&mutex);
 
-    usleep(sleep_time); // sleep for the desired time
+    usleep(sleep_time * 1000); // sleep for the desired time
 
+    sem_wait(&mutex);
     // remove an item from buffer to next_consumed
     next_consumed = buffer[consumer_index];
+    sem_post(&empty);
+    sem_post(&mutex);
 
     // consume the item in next_consumed
     printf("\tGet %d from bin %d\n", next_consumed, consumer_index);
     consumer_index = (consumer_index + 1) % buffer_size; // make indexing wrap around
 
+    sem_wait(&mutex);
     if(strcmp(command_buffer, "q\n") == 0 && consumer_index == producer_index && producer_done) {
       sem_post(&mutex);
-      sem_post(&empty);
       break; // break if q is in the command_buffer
     }
     sem_post(&mutex);
-    sem_post(&empty);
   }
   printf("\tEnd of consumer\n");
   return 0;

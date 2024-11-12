@@ -20,6 +20,8 @@ class Event:
     self.event_type = event_type  # type of event
   
   def __lt__(self, other):
+    if self.time == other.time:
+      return self.event_type == EventType.CPU_BURST and other.event_type == EventType.IO_BURST
     return self.time < other.time
 
 class Process:
@@ -31,18 +33,13 @@ class Process:
     self.cpu_bursts = cpu_bursts
     self.io_bursts = io_bursts
     
-    self.priority = self.arrival_time # set initial priority to arrival time
     self.event_type = EventType.CPU_BURST # set initial event type to CPU_BURST
     self.state = ProcessState.NEW # set initial process state to new
     self.turn_around_time = 0
     self.wait_time = 0
 
     Process.process_id += 1 # increment the process id
-  
-  
-  def __lt__(self, other):
-    return self.arrival_time < other.arrival_time
-  
+
 
   def perform_cpu_burst(self, quantum):
     time_remaining = self.cpu_bursts.pop(0) - quantum
@@ -77,34 +74,28 @@ def main():
       ready_queue.append(process)                                            # append the process to the ready queue
       
   cpu_time = 0          # cpu time starts at 0
-  first_process = True  # this is the first process being handled
   
   # loop processes are ready or there are events in priority queue
   while ready_queue or prioirty_queue:
-    # if there are ready processes
-    if ready_queue and (first_process or cpu_time >= ready_queue[0].arrival_time):
+    if ready_queue and cpu_time >= ready_queue[0].arrival_time:
       process = ready_queue.pop(0)        # take the first process in the ready queue
-      if first_process:
-        cpu_time = process.arrival_time   # nothing happens until the first process arrives, so cpu time is the ready time of the first process
-        first_process = False             # signal that it is no longer the first process
 
       
       process.state = ProcessState.READY  # set the process in the ready state
       print('Process', process.id, 'is in ready state')
-      event = Event(process.id, process.event_type, cpu_time)
-      heapq.heappush(prioirty_queue, event)
+
+      if (process.event_type == EventType.CPU_BURST and process.cpu_bursts) or (process.event_type == EventType.IO_BURST and process.io_bursts):
+        event = Event(process.id, process.event_type, cpu_time)
+        heapq.heappush(prioirty_queue, event)
+    else:
+      cpu_time += 1
+    
     
     if prioirty_queue:
       event = heapq.heappop(prioirty_queue)
       process_id = event.process_id
       event_type = event.event_type
       print(f"Handling event for process {process_id}, event type: {event_type}")
-
-      # # find the process
-      # process = next((p for p in ready_queue if p.id == process_id), None)
-      # if not process:
-      #   print('no')
-      #   continue
 
       # handle CPU Burst
       if event_type == EventType.CPU_BURST and process.cpu_bursts:
@@ -113,6 +104,11 @@ def main():
     
         if time_remaining < 0:
           cpu_time += time_remaining # time remaining will be negative
+          event_type = EventType.IO_BURST
+          event = Event(process.id, process.event_type, cpu_time)
+          heapq.heappush(prioirty_queue, event) 
+
+        else:
           process.state = ProcessState.BLOCKED # move to blocked state
           print('Process', process.id, 'is in blocked state')
           

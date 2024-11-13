@@ -76,7 +76,7 @@ def main():
   cpu_time = 0          # cpu time starts at 0
   
   # loop processes are ready or there are events in priority queue
-  while ready_queue or prioirty_queue:
+  while prioirty_queue:
     if ready_queue and cpu_time >= ready_queue[0].arrival_time:
       process = ready_queue.pop(0)        # take the first process in the ready queue
 

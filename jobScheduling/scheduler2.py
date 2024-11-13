@@ -57,6 +57,7 @@ class RR_Scheduler:
   def handle_arrival(self, event):
     event.process.state = Process.ProcessState.READY # set the process state to ready
     self.ready_queue.append(event.process)           # add the process to the ready queue
+    event.process.last_ready_time = self.cpu_time
     self.print_process_state(event)                  # print the state of the process
 
     if self.cpu_idle:
@@ -64,7 +65,6 @@ class RR_Scheduler:
     
   def handle_running(self, event):
     self.cpu_idle = False                             # the cpu is now running
-
     next_process = self.ready_queue.pop(0)            # pop the next process in RR order  
     next_process.state = Process.ProcessState.RUNNING # set the process state to running
     self.print_process_state(event)                   # print the process state
@@ -76,7 +76,10 @@ class RR_Scheduler:
     # update wait time
     next_process.wait_time += self.cpu_time - next_process.last_ready_time
 
-    if next_process.cpu_bursts[0] <= self.quantum and next_process.io_bursts: # check if there will be io request, preemption, or termination
+    # update last ready time
+    next_process.last_ready_time = self.cpu_time
+
+    if next_process.cpu_bursts[0] <= self.quantum: # check if there will be io request, preemption, or termination
       self.handle_io_request(event)
     elif next_process.cpu_bursts[0] > self.quantum:
       self.handle_preemption(event)
@@ -90,10 +93,9 @@ class RR_Scheduler:
       event.process.cpu_bursts[0] -= self.quantum # decrease the burst by quantum amount
       
       event.process_state = Process.ProcessState.BLOCKED
-      
       self.print_process_state(event)
 
-      self.ready_queue.append(event.process)
+      # self.ready_queue.append(event.process)
 
       if event.process.io_bursts:
         io_request = Event(event.process, Event.EventType.IO_REQUEST, self.cpu_time)
@@ -102,22 +104,26 @@ class RR_Scheduler:
   def handle_io_request(self, event):
     self.cpu_idle = True
     self.cpu_time += event.process.cpu_bursts.pop(0) # increment the cpu time by duration of cpu_burst (since it didn't use all of it)
-
     
-    io_duration = event.process.io_bursts.pop(0)
-    io_completion = Event(event.process, Event.EventType.IO_COMPLETION, self.cpu_time + io_duration)
-    heapq.heappush(self.event_queue, io_completion)
-    event.process.state = Process.ProcessState.BLOCKED
+    if event.process.io_bursts:
+      io_duration = event.process.io_bursts.pop(0)
+      io_completion = Event(event.process, Event.EventType.IO_COMPLETION, self.cpu_time + io_duration)
+      heapq.heappush(self.event_queue, io_completion)
+      event.process.state = Process.ProcessState.BLOCKED
+    else:
+      self.handle_termination(event)
 
   def handle_io_completion(self, event):
     event.process.state = Process.ProcessState.READY
-    event.process.last_read_time = event.time
+    event.process.last_ready_time = event.time
     self.ready_queue.append(event.process)
     self.cpu_idle = True
     self.print_process_state(event)
     self.handle_running(event)
 
   def handle_termination(self, event):
+    event.process.completion_time = self.cpu_time
+    event.process.turn_around_time = event.process.completion_time - event.process.arrival_time
     print(f'Job {event.process.id} terminated: Turn-Around-Time = {event.process.turn_around_time}, Wait time = {event.process.wait_time}')
       
   def print_process_state(self, event):
@@ -126,6 +132,8 @@ class RR_Scheduler:
   def run(self):
     while self.event_queue:
       event = heapq.heappop(self.event_queue) # pop the earliest event in the queue
+      if self.cpu_time < event.process.arrival_time and event.event_type == Event.EventType.ARRIVAL:
+        self.cpu_time = event.process.arrival_time
       
       if event.event_type == Event.EventType.ARRIVAL:
         self.handle_arrival(event)
@@ -159,7 +167,7 @@ def main():
 
       arrival_event = Event(process, Event.EventType.ARRIVAL, arrival_time)
       
-      schduler.handle_arrival(arrival_event)
+      heapq.heappush(schduler.event_queue, arrival_event)
   
   schduler.run()
 

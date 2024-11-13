@@ -59,7 +59,7 @@ class RR_Scheduler:
     event.process.last_ready_time = event.time        # last time process was ready is when it arrived
     event.process.state = Process.ProcessState.READY  # set the process state to ready
 
-    self.ready_queue.append(event.process)            # add the process to the ready queue
+    self.ready_queue.insert(0, event.process)         # add the process to the ready queue
     self.print_process_state(event.process)           # print the state of the process (READY)
     
   def dispatch_to_cpu(self, process):
@@ -71,9 +71,7 @@ class RR_Scheduler:
       process.start_time = self.cpu_time
 
     process.wait_time += self.cpu_time - process.last_ready_time # update wait time
-    # print('last ready time ', process.last_ready_time)
-    # print('cpu_time', self.cpu_time)
-
+    
     # preemption case
     if process.cpu_bursts[0] > self.quantum:
       self.cpu_time += self.quantum # increment the cpu time by the quantum (since it used all of it)
@@ -86,11 +84,11 @@ class RR_Scheduler:
       
       event_time = self.cpu_time + self.quantum
       event = Event(process, Event.EventType.PREEMPTION, event_time)
-
-      self.print_process_state(process)              # print the process state
       heapq.heappush(self.event_queue, event)
 
-    elif process.cpu_bursts[0] <= self.quantum:
+      self.print_process_state(process)              # print the process state
+      
+    else:
       cpu_burst_duration = process.cpu_bursts.pop(0)
       self.cpu_time += cpu_burst_duration # increment the cpu time by cpu_burst (since it didn't use all of quantum)
 
@@ -112,12 +110,11 @@ class RR_Scheduler:
 
         print(f'Job {process.id} terminated: Turn-Around-Time = {process.turn_around_time}, Wait time = {process.wait_time}')
 
-  def handle_preemption(self, event):
-    event.process.state = Process.ProcessState.READY
-    self.ready_queue.append(event.process)      # add the process back to the ready queue
+  # def handle_preemption(self, event):
+  #   event.process.state = Process.ProcessState.READY
+  #   self.ready_queue.append(event.process)      # add the process back to the ready queue
 
   def handle_io_request(self, event):
-    event.process.state = Process.ProcessState.BLOCKED
     self.print_process_state(event.process)
     
     io_duration = event.process.io_bursts.pop(0)
@@ -129,7 +126,7 @@ class RR_Scheduler:
 
     if event.process.cpu_bursts:
       self.ready_queue.append(event.process)
-      self.print_process_state(event)
+      self.print_process_state(event.process)
     else:  
       event.process.state = Process.ProcessState.EXIT
       self.print_process_state(event.process)
@@ -140,7 +137,7 @@ class RR_Scheduler:
       print(f'Job {event.process.id} terminated: Turn-Around-Time = {event.process.turn_around_time}, Wait time = {event.process.wait_time}')
       
   def print_process_state(self, process):
-    print(f'Process {process.id} is in {process.state}')
+    print(f'CPU Time: {self.cpu_time} -- Process {process.id} is in {process.state.name}')
 
   def run(self):
     while self.event_queue or self.ready_queue:
@@ -157,7 +154,8 @@ class RR_Scheduler:
             if event.event_type == Event.EventType.ARRIVAL:
                 self.handle_arrival(event)
             elif event.event_type == Event.EventType.PREEMPTION:
-                self.handle_preemption(event)
+                # self.handle_preemption(event)
+                pass
             elif event.event_type == Event.EventType.IO_REQUEST:
                 self.handle_io_request(event)
             elif event.event_type == Event.EventType.IO_COMPLETION:

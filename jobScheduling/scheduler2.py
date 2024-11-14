@@ -38,6 +38,8 @@ class Event():
     IO_COMPLETION = 4
     TERMINATION = 5
 
+  priority_order = [EventType.ARRIVAL, EventType.IO_COMPLETION, EventType.PREEMPTION]
+
   def __init__(self, process, event_type, time):
     self.process = process        # to whom this event applies
     self.time = time              # when the event will occur
@@ -45,8 +47,11 @@ class Event():
   
   def __lt__(self, other):
     if self.time == other.time:
-      if self.event_type == Event.EventType.ARRIVAL and self.event_type == Event.EventType.ARRIVAL:
+      if self.event_type == other.event_type:
         return self.process.id < other.process.id
+      if self.event_type in Event.priority_order and other.event_type in Event.priority_order:
+        return Event.priority_order.index(self.event_type) < Event.priority_order.index(other.event_type)
+      return self.process.id < other.process.id
     return self.time < other.time # for handling the earliest event first 
 
 class RR_Scheduler:
@@ -130,7 +135,7 @@ class RR_Scheduler:
     print(f'Job {event.process.id} terminated: Turn-Around-Time = {event.process.turn_around_time}, Wait time = {event.process.wait_time}')
       
   def print_process_state(self, process):
-    print(f'CPU Time: {self.cpu_time} -- Process {process.id} is in {process.state.name}')
+    print(f'CPU Time: {self.cpu_time} -- Process {process.id} is in process state {process.state.name}')
 
   def run(self):
     while self.event_queue or self.ready_queue:

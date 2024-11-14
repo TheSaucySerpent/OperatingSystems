@@ -157,7 +157,7 @@ class RR_Scheduler:
             self.handle_termination(event)
 
       # run the next process in the ready queue
-      elif self.ready_queue:
+      if self.ready_queue:
           current_process = self.ready_queue.pop(0)
           self.generate_event(current_process)
 

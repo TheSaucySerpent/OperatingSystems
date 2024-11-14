@@ -89,7 +89,7 @@ class RR_Scheduler:
     else:
       # IO request case
       if process.io_bursts:
-        event = Event(process, Event.EventType.IO_REQUEST, event_time)
+        event = Event(process, Event.EventType.IO_REQUEST, self.cpu_time)
         heapq.heappush(self.event_queue, event)
         
       # termination case
@@ -97,6 +97,8 @@ class RR_Scheduler:
         process.state = Process.ProcessState.EXIT
         event = Event(process, Event.EventType.TERMINATION, process.cpu_bursts[0] + self.cpu_time)
         heapq.heappush(self.event_queue, event)
+
+        self.print_process_state(event.process)
 
   def handle_preemption(self, event):
     event.process.cpu_bursts[0] -= self.quantum # decrease the burst by quantum amount
@@ -108,8 +110,6 @@ class RR_Scheduler:
     self.print_process_state(event.process)
 
   def handle_io_request(self, event):
-    cpu_burst_duration = event.process.cpu_bursts.pop(0)
-
     event.process.state = Process.ProcessState.BLOCKED
     
     io_duration = event.process.io_bursts.pop(0)
@@ -123,11 +123,12 @@ class RR_Scheduler:
 
     if event.process.cpu_bursts:
       self.ready_queue.append(event.process)
-      self.print_process_state(event.process)
     else:  
       event.process.state = Process.ProcessState.EXIT
-      event = Event(event.process, Event.EventType.TERMINATION, event.process.cpu_bursts[0] + self.cpu_time)
+      event = Event(event.process, Event.EventType.TERMINATION, self.cpu_time)
       heapq.heappush(self.event_queue, event)
+    
+    self.print_process_state(event.process)
 
   def handle_termination(self, event):
     event.process.completion_time = self.cpu_time
@@ -154,7 +155,6 @@ class RR_Scheduler:
             self.handle_io_completion(event)
         elif event.event_type == Event.EventType.TERMINATION:
             self.handle_termination(event)
-            self.print_process_state(event.process)
 
       # run the next process in the ready queue
       elif self.ready_queue:

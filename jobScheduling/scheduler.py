@@ -49,9 +49,12 @@ class Event():
     if self.time == other.time:
       if self.event_type == other.event_type:
         return self.process.id < other.process.id
-      if self.event_type in Event.priority_order and other.event_type in Event.priority_order:
+      
+      elif self.event_type in Event.priority_order and other.event_type in Event.priority_order:
         return Event.priority_order.index(self.event_type) < Event.priority_order.index(other.event_type)
+      
       return self.process.id < other.process.id
+    
     return self.time < other.time # for handling the earliest event first 
 
 class RR_Scheduler:
@@ -63,111 +66,82 @@ class RR_Scheduler:
     self.total_cpu_active_time = 0 # track time cpu was active for cpu usage
     self.completed_processes = [] # a list of the processes that have finished
   
-  def handle_arrival(self, event):
-    self.print_process_state(event.process)           # print the state of the process (NEW)
-
-    event.process.last_ready_time = event.time        # last time process was ready is when it arrived
-    event.process.state = Process.ProcessState.READY  # set the process state to ready
-
-    self.ready_queue.append(event.process)            # add the process to the ready queue
-    self.print_process_state(event.process)           # print the state of the process (READY)
-    
   def generate_event(self, process):
-    process.state = Process.ProcessState.RUNNING # set the process state to running
-    # self.print_process_state(process)            # print the state of the process (RUNNING)
-
-    # if this is the first time the process has been run, start time is now
     if process.start_time is None:
-      process.start_time = self.cpu_time
+      process.start_time = self.cpu_time         # if this is the first time the process has been run, start time is now
 
-    process.wait_time += self.cpu_time - process.last_ready_time # update wait time
+    process.state = Process.ProcessState.RUNNING # set the process state to running
+    self.print_process_state(process)            # print the state of the process (RUNNING)
     
-    future_time = self.cpu_time
+    future_time = self.cpu_time                  # calculate when the next event can occur
     if self.event_queue:
       future_cpu_times = [event.time for event in self.event_queue if event.event_type in [Event.EventType.PREEMPTION, Event.EventType.IO_REQUEST, Event.EventType.TERMINATION]]
       if future_cpu_times:
         future_time = max(future_time, max(future_cpu_times))
 
-    if process.cpu_bursts and not process.io_bursts and process.cpu_bursts[0] > self.quantum:
-      event_time = future_time + self.quantum
-      event = Event(process, Event.EventType.PREEMPTION, event_time)
-      heapq.heappush(self.event_queue, event)
-      
-
     # preemption case
-    elif process.cpu_bursts and process.cpu_bursts[0] > self.quantum:
-      process.state = Process.ProcessState.READY
+    if process.cpu_bursts[0] > self.quantum:
+      event_time = future_time + self.quantum                           # premption time = time + quantum
+      event = Event(process, Event.EventType.PREEMPTION, event_time)    # create the premption event
+      heapq.heappush(self.event_queue, event)                           # add the preemption event to the event queue
 
-      event_time = future_time + self.quantum
-      event = Event(process, Event.EventType.PREEMPTION, event_time)
-      heapq.heappush(self.event_queue, event)
-
-      # self.print_process_state(event.process)
+    # the burst is less than or equal to the quantum (either doing IO burst or terminating)
     else:
       # IO request case
       if process.io_bursts:
-        event_time = future_time + process.cpu_bursts[0]
-        event = Event(process, Event.EventType.IO_REQUEST, event_time)
-        heapq.heappush(self.event_queue, event)
+        event_time = future_time + process.cpu_bursts[0]                # IO request time = time + burst duration
+        event = Event(process, Event.EventType.IO_REQUEST, event_time)  # create the IO request event
+        heapq.heappush(self.event_queue, event)                         # add the IO request event to the event queue
 
       # termination case
-      elif not process.cpu_bursts and not process.io_bursts:
-        process.state = Process.ProcessState.EXIT
-        event_time = future_time
-        event = Event(process, Event.EventType.TERMINATION, future_time)
-        heapq.heappush(self.event_queue, event)
-
-        # self.print_process_state(event.process)
-      
       else:
-        # burst = process.cpu_bursts.pop(0)
-        event_time = future_time + process.cpu_bursts[0]
-        process.cpu_bursts.pop(0)
+        event_time = future_time + process.cpu_bursts[0]                # termination time = time + burst duration
+        event = Event(process, Event.EventType.TERMINATION, event_time) # create the termination event
+        heapq.heappush(self.event_queue, event)                         # add the termination event to the event queue
 
-        event = Event(process, Event.EventType.PREEMPTION, event_time)
-        heapq.heappush(self.event_queue, event)
-        # process.state = Process.ProcessState.READY
-        # process.last_ready_time = self.cpu_time
-        # self.ready_queue.append(process)
+  def handle_arrival(self, event):
+    self.print_process_state(event.process)           # print the state of the process (NEW)
 
-  def handle_preemption(self, event):
-    event.process.last_ready_time = self.cpu_time # update last ready time
-    if(event.process.cpu_bursts):
-      event.process.cpu_bursts[0] -= self.quantum # decrease the burst by quantum amount
-      self.ready_queue.append(event.process)
+    event.process.state = Process.ProcessState.READY  # set the process state to ready
+    event.process.last_ready_time = event.time        # last time process was ready is when it arrived
+
+    self.ready_queue.append(event.process)            # add the process to the ready queue
+    self.print_process_state(event.process)           # print the state of the process (READY)
     
-    else:
-      event = Event(event.process, Event.EventType.TERMINATION, self.cpu_time)
-      heapq.heappush(self.event_queue, event)
+  def handle_preemption(self, event):
+    event.process.cpu_bursts[0] -= self.quantum       # decrease the burst by quantum amount
 
-    # self.print_process_state(event.process)
+    event.process.state = Process.ProcessState.READY  # set the process state to ready
+    event.process.last_ready_time = self.cpu_time     # update last ready time
+
+    self.ready_queue.append(event.process)            # add the process to the ready queue
+    self.print_process_state(event.process)           # print the state of the process (READY)
 
   def handle_io_request(self, event):
-    event.process.state = Process.ProcessState.BLOCKED
-    
-    io_duration = event.process.io_bursts.pop(0)
-    io_completion = Event(event.process, Event.EventType.IO_COMPLETION, self.cpu_time + io_duration)
-    heapq.heappush(self.event_queue, io_completion)
+    event.process.wait_time += self.cpu_time - event.process.last_ready_time        # update wait time
 
-    self.print_process_state(event.process)
+    event.process.state = Process.ProcessState.BLOCKED                              # set the process state to blocked
+    self.print_process_state(event.process)                                         # print the state of the process (BLOCKED)
+    
+    io_completion_time = self.cpu_time + event.process.io_bursts.pop(0)
+    event = Event(event.process, Event.EventType.IO_COMPLETION, io_completion_time) # create IO completion event
+    heapq.heappush(self.event_queue, event)                                         # add the IO completion to the event queue
 
   def handle_io_completion(self, event):
-    event.process.state = Process.ProcessState.READY
+    event.process.state = Process.ProcessState.READY  # set the process state to ready
+    event.process.last_ready_time = self.cpu_time     # update last ready time
 
-    if event.process.cpu_bursts:
-      self.ready_queue.append(event.process)
-    else:  
-      event.process.state = Process.ProcessState.EXIT
-      event = Event(event.process, Event.EventType.TERMINATION, self.cpu_time)
-      heapq.heappush(self.event_queue, event)
-    
-    self.print_process_state(event.process)
+    self.ready_queue.append(event.process)            # add the process to the ready queue
+    self.print_process_state(event.process)           # print the state of the process (READY)
 
   def handle_termination(self, event):
+    # set the completion time to the current CPU time
     event.process.completion_time = self.cpu_time
-    event.process.turn_around_time = event.process.completion_time - event.process.arrival_time
-    print(f'Job {event.process.id} terminated: Turn-Around-Time = {event.process.turn_around_time}, Wait time = {event.process.wait_time}')
-    self.completed_processes.append(event.process)
+    event.process.turn_around_time = event.process.completion_time - event.process.arrival_time # calculate turn around time
+
+    # print the termination messaage
+    print(f'Process {event.process.id} terminated: Turn-Around-Time = {event.process.turn_around_time}, Wait time = {event.process.wait_time}')
+    self.completed_processes.append(event.process) # add the process to the completed processes list
       
   def print_process_state(self, process):
     print(f'CPU Time: {self.cpu_time} -- Process {process.id} is in process state {process.state.name}')

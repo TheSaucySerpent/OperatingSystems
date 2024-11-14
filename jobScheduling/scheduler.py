@@ -69,9 +69,6 @@ class RR_Scheduler:
   def generate_event(self, process):
     if process.start_time is None:
       process.start_time = self.cpu_time         # if this is the first time the process has been run, start time is now
-
-    process.state = Process.ProcessState.RUNNING # set the process state to running
-    self.print_process_state(process)            # print the state of the process (RUNNING)
     
     future_time = self.cpu_time                  # calculate when the next event can occur
     if self.event_queue:
@@ -100,6 +97,8 @@ class RR_Scheduler:
         heapq.heappush(self.event_queue, event)                         # add the termination event to the event queue
 
   def handle_arrival(self, event):
+    self.print_event(event)                           # print what event is being handled
+
     self.print_process_state(event.process)           # print the state of the process (NEW)
 
     event.process.state = Process.ProcessState.READY  # set the process state to ready
@@ -109,20 +108,28 @@ class RR_Scheduler:
     self.print_process_state(event.process)           # print the state of the process (READY)
     
   def handle_preemption(self, event):
-    event.process.cpu_bursts[0] -= self.quantum       # decrease the burst by quantum amount
+    event.process.state = Process.ProcessState.RUNNING # set the process state to running
+    self.print_process_state(event.process)            # print the state of the process (RUNNING)
 
-    event.process.state = Process.ProcessState.READY  # set the process state to ready
-    event.process.last_ready_time = self.cpu_time     # update last ready time
+    event.process.cpu_bursts[0] -= self.quantum        # decrease the burst by quantum amount
 
-    self.ready_queue.append(event.process)            # add the process to the ready queue
-    self.print_process_state(event.process)           # print the state of the process (READY)
+    self.print_event(event)                            # print what event is being handled
+
+    event.process.state = Process.ProcessState.READY   # set the process state to ready
+    event.process.last_ready_time = self.cpu_time      # update last ready time
+
+    self.ready_queue.append(event.process)             # add the process to the ready queue
+    self.print_process_state(event.process)            # print the state of the process (READY)
 
   def handle_io_request(self, event):
-    event.process.wait_time += self.cpu_time - event.process.last_ready_time        # update wait time
+    event.process.state = Process.ProcessState.RUNNING                              # set the process state to running
+    self.print_process_state(event.process)                                         # print the state of the process (RUNNING)
 
     event.process.state = Process.ProcessState.BLOCKED                              # set the process state to blocked
     self.print_process_state(event.process)                                         # print the state of the process (BLOCKED)
     
+    self.print_event(event)                                                         # print what event is being handled
+
     io_completion_time = self.cpu_time + event.process.io_bursts.pop(0)
     event = Event(event.process, Event.EventType.IO_COMPLETION, io_completion_time) # create IO completion event
     heapq.heappush(self.event_queue, event)                                         # add the IO completion to the event queue
@@ -131,10 +138,17 @@ class RR_Scheduler:
     event.process.state = Process.ProcessState.READY  # set the process state to ready
     event.process.last_ready_time = self.cpu_time     # update last ready time
 
+    self.print_event(event)                           # print what event is being handled
+
     self.ready_queue.append(event.process)            # add the process to the ready queue
     self.print_process_state(event.process)           # print the state of the process (READY)
 
   def handle_termination(self, event):
+    event.process.state = Process.ProcessState.RUNNING # set the process state to running
+    self.print_process_state(event.process)            # print the state of the process (RUNNING))
+
+    self.print_event(event)                            # print the event being handled
+
     # set the completion time to the current CPU time
     event.process.completion_time = self.cpu_time
     event.process.turn_around_time = event.process.completion_time - event.process.arrival_time # calculate turn around time
@@ -146,6 +160,9 @@ class RR_Scheduler:
   def print_process_state(self, process):
     print(f'CPU Time: {self.cpu_time} -- Process {process.id} is in process state {process.state.name}')
   
+  def print_event(self, event):
+    print(f"CPU Time: {self.cpu_time} -- {event.event_type.name} for Process {event.process.id}")
+
   def output_summary_stats(self):
     total_turnaround_time = sum(p.turn_around_time for p in self.completed_processes)
     total_wait_time = sum(p.wait_time for p in self.completed_processes)
@@ -169,7 +186,6 @@ class RR_Scheduler:
       if self.event_queue:
         event = heapq.heappop(self.event_queue)
         self.cpu_time = event.time
-        print(f"CPU Time: {self.cpu_time} -- {event.event_type.name} for Process {event.process.id}")
         
         if event.event_type == Event.EventType.ARRIVAL:
             self.handle_arrival(event)

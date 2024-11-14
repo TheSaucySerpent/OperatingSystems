@@ -44,6 +44,9 @@ class Event():
     self.event_type = event_type  # type of event
   
   def __lt__(self, other):
+    if self.time == other.time:
+      if self.event_type == Event.EventType.ARRIVAL and self.event_type == Event.EventType.ARRIVAL:
+        return self.process.id < other.process.id
     return self.time < other.time # for handling the earliest event first 
 
 class RR_Scheduler:
@@ -59,7 +62,7 @@ class RR_Scheduler:
     event.process.last_ready_time = event.time        # last time process was ready is when it arrived
     event.process.state = Process.ProcessState.READY  # set the process state to ready
 
-    self.ready_queue.append(event.process)         # add the process to the ready queue
+    self.ready_queue.append(event.process)            # add the process to the ready queue
     self.print_process_state(event.process)           # print the state of the process (READY)
     
   def generate_event(self, process):
